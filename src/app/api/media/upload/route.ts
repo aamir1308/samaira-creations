@@ -29,13 +29,13 @@ export async function POST(request: NextRequest) {
 
   // Create bucket if it doesn't exist yet
   const { data: buckets } = await adminSupabase.storage.listBuckets();
-  const bucketExists = buckets?.some((b) => b.name === "product-images");
+  const bucketExists = buckets?.some((b) => b.name === "product-image");
   if (!bucketExists) {
-    await adminSupabase.storage.createBucket("product-images", { public: true });
+    await adminSupabase.storage.createBucket("product-image", { public: true });
   }
 
   const { error: uploadError } = await adminSupabase.storage
-    .from("product-images")
+    .from("product-image")
     .upload(filename, buffer, { contentType: file.type, upsert: false });
 
   if (uploadError) {
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
   }
 
   const { data: { publicUrl } } = adminSupabase.storage
-    .from("product-images")
+    .from("product-image")
     .getPublicUrl(filename);
 
   return NextResponse.json(

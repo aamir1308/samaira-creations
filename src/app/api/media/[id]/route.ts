@@ -15,7 +15,7 @@ export async function DELETE(
   // Use admin client to bypass storage RLS for delete
   const adminSupabase = createAdminSupabaseClient();
   const { error } = await adminSupabase.storage
-    .from("product-images")
+    .from("product-image")
     .remove([filename]);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
