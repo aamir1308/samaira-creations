@@ -1,0 +1,9 @@
+# https://www.robotstxt.org/robotstxt.html
+User-agent: *
+Allow: /
+
+# Disallow admin paths (if applicable in future)
+Disallow: /admin/
+
+# Sitemap location
+Sitemap: https://www.samaira-creations.de/sitemap.xml
