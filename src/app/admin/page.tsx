@@ -38,7 +38,7 @@ function Modal({ isOpen, onClose, children, title }: ModalProps) {
       <div className="absolute inset-0 bg-black/50" />
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
-        className="relative bg-[var(--canvas)] rounded-[16px] w-full max-w-[32rem] max-h-[90vh] overflow-hidden shadow-xl border border-[var(--hairline)] z-10"
+        className="relative bg-[var(--canvas)] rounded-[16px] w-full max-w-[42rem] max-h-[90vh] overflow-hidden shadow-xl border border-[var(--hairline)] z-10"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between p-4 border-b border-[var(--hairline)]">
@@ -76,6 +76,135 @@ function ConfirmDialog({ isOpen, onClose, onConfirm, title, message }: {
   );
 }
 
+// ─── Image Uploader ───────────────────────────────────────────────────────────
+
+function ImageUploader({ images, onChange }: { images: string[]; onChange: (imgs: string[]) => void }) {
+  const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const upload = async (files: FileList | File[] | null) => {
+    if (!files || !files.length) return;
+    setUploading(true);
+    const newUrls: string[] = [];
+    for (const file of Array.from(files)) {
+      if (!file.type.startsWith("image/")) continue;
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/media/upload", { method: "POST", body: fd });
+      if (res.ok) {
+        const record = await res.json() as { url: string };
+        newUrls.push(record.url);
+      }
+    }
+    onChange([...images, ...newUrls]);
+    setUploading(false);
+  };
+
+  const remove = (idx: number) => onChange(images.filter((_, i) => i !== idx));
+
+  const setCover = (idx: number) => {
+    const next = [...images];
+    const [moved] = next.splice(idx, 1);
+    next.unshift(moved);
+    onChange(next);
+  };
+
+  const moveLeft = (idx: number) => {
+    if (idx === 0) return;
+    const next = [...images];
+    [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
+    onChange(next);
+  };
+
+  const moveRight = (idx: number) => {
+    if (idx === images.length - 1) return;
+    const next = [...images];
+    [next[idx], next[idx + 1]] = [next[idx + 1], next[idx]];
+    onChange(next);
+  };
+
+  return (
+    <div className="space-y-3">
+      {/* Thumbnails */}
+      {images.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {images.map((url, idx) => (
+            <div key={`${url}-${idx}`} className="relative flex-shrink-0">
+              <div
+                className="w-20 h-20 rounded-[8px] overflow-hidden border-2 transition-colors"
+                style={{ borderColor: idx === 0 ? "var(--brand-teal)" : "var(--hairline)" }}
+              >
+                <img src={url} alt={`Image ${idx + 1}`} className="w-full h-full object-cover" />
+              </div>
+              {idx === 0 && (
+                <span className="absolute -top-2 left-0 right-0 text-center text-[9px] font-semibold bg-[var(--brand-teal)] text-white rounded-t-[4px] leading-4">
+                  COVER
+                </span>
+              )}
+              {/* Actions on hover */}
+              <div className="absolute inset-0 rounded-[8px] bg-black/60 opacity-0 hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1">
+                {idx !== 0 && (
+                  <button type="button" onClick={() => setCover(idx)}
+                    className="text-[9px] font-semibold text-white bg-[var(--brand-teal)] px-2 py-0.5 rounded-full leading-4">
+                    Set Cover
+                  </button>
+                )}
+                <div className="flex gap-1">
+                  {idx > 0 && (
+                    <button type="button" onClick={() => moveLeft(idx)}
+                      className="w-5 h-5 rounded-full bg-white/20 text-white flex items-center justify-center text-xs hover:bg-white/40">
+                      ‹
+                    </button>
+                  )}
+                  {idx < images.length - 1 && (
+                    <button type="button" onClick={() => moveRight(idx)}
+                      className="w-5 h-5 rounded-full bg-white/20 text-white flex items-center justify-center text-xs hover:bg-white/40">
+                      ›
+                    </button>
+                  )}
+                  <button type="button" onClick={() => remove(idx)}
+                    className="w-5 h-5 rounded-full bg-[var(--error)] text-white flex items-center justify-center hover:opacity-80">
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Drop zone / Upload button */}
+      <div
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e) => { e.preventDefault(); setDragOver(false); void upload(e.dataTransfer.files); }}
+        onClick={() => fileRef.current?.click()}
+        className={cn(
+          "flex items-center justify-center gap-3 p-4 rounded-[12px] border-2 border-dashed cursor-pointer transition-colors",
+          dragOver
+            ? "border-[var(--brand-teal)] bg-[var(--brand-teal)]/5"
+            : "border-[var(--hairline)] hover:border-[var(--brand-teal)] hover:bg-[var(--surface-soft)]"
+        )}
+      >
+        {uploading
+          ? <Loader2 className="w-4 h-4 animate-spin text-[var(--brand-teal)]" />
+          : <Upload className="w-4 h-4 text-[var(--muted)]" />}
+        <span className="text-sm text-[var(--muted)]">
+          {uploading ? "Uploading…" : "Click or drag images to upload"}
+        </span>
+      </div>
+      <input ref={fileRef} type="file" multiple accept="image/*" className="hidden"
+        onChange={(e) => void upload(e.target.files)} />
+      {images.length > 0 && (
+        <p className="text-xs text-[var(--muted)]">
+          Hover an image to reorder or remove. First image is the cover photo.
+        </p>
+      )}
+    </div>
+  );
+}
+
 // ─── Product Form ─────────────────────────────────────────────────────────────
 
 function ProductForm({ product, onSubmit, onCancel }: {
@@ -92,6 +221,7 @@ function ProductForm({ product, onSubmit, onCancel }: {
     description: product?.description || "",
     careInstructions: product?.careInstructions || "",
     ageGroups: product?.ageGroups || [] as AgeGroup[],
+    images: product?.images || [] as string[],
     inStock: product?.inStock ?? true,
     isBestSeller: product?.isBestSeller ?? false,
     isOrganic: product?.isOrganic ?? false,
@@ -168,6 +298,13 @@ function ProductForm({ product, onSubmit, onCancel }: {
           onChange={(e) => setFormData({ ...formData, careInstructions: e.target.value })}
           className="w-full px-4 py-2 rounded-[12px] bg-[var(--surface-soft)] border border-[var(--hairline)] text-[var(--ink)]"
           placeholder="e.g., Machine wash cold, tumble dry low" />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-[var(--ink)] mb-2">Product Images</label>
+        <ImageUploader
+          images={formData.images}
+          onChange={(imgs) => setFormData({ ...formData, images: imgs })}
+        />
       </div>
       <div>
         <label className="block text-sm font-medium text-[var(--ink)] mb-2">Age Groups</label>
