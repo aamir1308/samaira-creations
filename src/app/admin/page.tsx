@@ -891,19 +891,21 @@ function MediaContent() {
   const [media, setMedia] = useState<MediaRecord[]>([]);
   const [loadingMedia, setLoadingMedia] = useState(true);
   const [copyId, setCopyId] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetch("/api/media").then(r => r.json()).then(data => {
       setMedia(Array.isArray(data) ? data : []);
       setLoadingMedia(false);
-    });
+    }).catch(() => setLoadingMedia(false));
   }, []);
 
   const uploadFiles = async (files: File[]) => {
     const images = files.filter(f => f.type.startsWith("image/"));
     if (!images.length) return;
     setUploading(true);
+    setUploadError("");
     for (const file of images) {
       const fd = new FormData();
       fd.append("file", file);
@@ -911,6 +913,9 @@ function MediaContent() {
       if (res.ok) {
         const record: MediaRecord = await res.json();
         setMedia(prev => [record, ...prev]);
+      } else {
+        const body = await res.json().catch(() => ({ error: "Upload failed" }));
+        setUploadError((body as { error?: string }).error ?? "Upload failed");
       }
     }
     setUploading(false);
@@ -951,6 +956,11 @@ function MediaContent() {
           <Upload className="w-4 h-4 mr-2" />Select Files
         </Button>
       </div>
+      {uploadError && (
+        <div className="flex items-center gap-2 p-4 rounded-[12px] bg-[var(--error)]/10 text-[var(--error)] text-sm">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />{uploadError}
+        </div>
+      )}
       <div className="bg-[var(--canvas)] p-6 rounded-[16px] border border-[var(--hairline)]">
         <h3 className="text-lg font-semibold text-[var(--ink)] mb-4">
           Uploaded Images ({media.length})

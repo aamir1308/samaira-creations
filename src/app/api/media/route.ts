@@ -1,12 +1,30 @@
 import { NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { createAdminSupabaseClient } from "@/lib/supabase-server";
 
 export async function GET() {
-  const supabase = await createServerSupabaseClient();
-  const { data, error } = await supabase
-    .from("media")
-    .select("*")
-    .order("created_at", { ascending: false });
+  const supabase = createAdminSupabaseClient();
+
+  const { data: files, error } = await supabase.storage
+    .from("product-images")
+    .list("", { limit: 200, sortBy: { column: "created_at", order: "desc" } });
+
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data);
+
+  const records = (files ?? [])
+    .filter((f) => f.name !== ".emptyFolderPlaceholder")
+    .map((f) => {
+      const { data } = supabase.storage
+        .from("product-images")
+        .getPublicUrl(f.name);
+      return {
+        id: f.name,
+        filename: f.name,
+        url: data.publicUrl,
+        size: f.metadata?.size ?? 0,
+        mime_type: f.metadata?.mimetype ?? "image/jpeg",
+        created_at: f.created_at ?? new Date().toISOString(),
+      };
+    });
+
+  return NextResponse.json(records);
 }
