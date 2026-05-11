@@ -4,6 +4,13 @@ import { createAdminSupabaseClient } from "@/lib/supabase-server";
 export async function GET() {
   const supabase = createAdminSupabaseClient();
 
+  // Create bucket if it doesn't exist yet
+  const { data: buckets } = await supabase.storage.listBuckets();
+  const bucketExists = buckets?.some((b) => b.name === "product-images");
+  if (!bucketExists) {
+    await supabase.storage.createBucket("product-images", { public: true });
+  }
+
   const { data: files, error } = await supabase.storage
     .from("product-images")
     .list("", { limit: 200, sortBy: { column: "created_at", order: "desc" } });

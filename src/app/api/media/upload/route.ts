@@ -26,6 +26,14 @@ export async function POST(request: NextRequest) {
 
   // Use admin client to bypass storage RLS for upload
   const adminSupabase = createAdminSupabaseClient();
+
+  // Create bucket if it doesn't exist yet
+  const { data: buckets } = await adminSupabase.storage.listBuckets();
+  const bucketExists = buckets?.some((b) => b.name === "product-images");
+  if (!bucketExists) {
+    await adminSupabase.storage.createBucket("product-images", { public: true });
+  }
+
   const { error: uploadError } = await adminSupabase.storage
     .from("product-images")
     .upload(filename, buffer, { contentType: file.type, upsert: false });
